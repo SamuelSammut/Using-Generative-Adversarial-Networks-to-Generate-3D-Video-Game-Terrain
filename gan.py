@@ -226,8 +226,7 @@ def load_dataset(output_folder_path, batch_size):
 if __name__ == "__main__":
     # Dimension of the noise vector
     noise_dim = 100
-    # For example, 28x28 with 3 RGB channels + 1 DEM channel
-    output_shape = (28, 28, 4)
+    output_shape = (128, 128, 4)
 
     batch_size = 32
     epochs = 50

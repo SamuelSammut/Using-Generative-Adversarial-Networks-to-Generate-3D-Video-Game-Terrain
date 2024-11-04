@@ -40,6 +40,20 @@ def process_images(dem_path, rgb_path, output_folder):
     # Stack RGB and DEM to create a 4-channel image (height, width, 4)
     combined_image = np.dstack((rgb_image, dem_image_resized))
 
+    # Print shape before resizing (for verification)
+    print("Combined image shape before resizing:", combined_image.shape)
+
+    # Define target dimensions for resizing
+    target_size = (128, 128)
+    height_factor = target_size[0] / combined_image.shape[0]
+    width_factor = target_size[1] / combined_image.shape[1]
+
+    # Resize to (128, 128, 4) using zoom factors for height and width
+    combined_image_resized = zoom(combined_image, (height_factor, width_factor, 1))
+
+    # Print shape after resizing
+    print("Combined image shape after resizing:", combined_image_resized.shape)
+
     # Save the combined image as a .npy file
     output_filename = os.path.join(output_folder, os.path.basename(rgb_path).replace('rgb_image_', 'combined_image_').replace('.tif', '.npy'))
     np.save(output_filename, combined_image)
