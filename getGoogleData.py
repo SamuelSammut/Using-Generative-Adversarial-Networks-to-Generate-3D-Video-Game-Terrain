@@ -67,7 +67,7 @@ def export_rgb_and_dem(region, num):
     print(f"Exporting task for RGB image {num} and DEM started.")
 
 # Automating the export process
-for num in range(30):
+for num in range(1000):
     mountainous_areas = get_mountainous_areas().geometry().bounds()
     export_rgb_and_dem(region, num)
 

@@ -16,51 +16,74 @@ def process_images(dem_path, rgb_path, output_folder):
     # Loading the RGB image and extracting only the first 3 bands (R, G, B)
     rgb_image = load_geotiff(rgb_path)[:3, :, :]
 
+
     # Reordering to (height, width, 3)
     rgb_image = np.transpose(rgb_image, (1, 2, 0))
 
     # Load the DEM image and accessing the first band for DEM
     dem_image = load_geotiff(dem_path)[0]
 
-    # Calculating the zoom factors for resizing the DEM to match the RGB image dimensions
-    zoom_factors = (
-        rgb_image.shape[0] / dem_image.shape[0],  # Height factor
-        rgb_image.shape[1] / dem_image.shape[1]  # Width factor
-    )
 
-    # Resizing the DEM using scipy.ndimage.zoom to match RGB dimensions
-    dem_image_resized = zoom(dem_image, zoom_factors)
+    # Check for NaN or Inf in dem_image before resizing
+    if np.isnan(dem_image).any() or np.isinf(dem_image).any():
+        print(f"Warning: dem_image contains NaN or Inf values before resizing! File: {dem_path}")
 
-    # Normalizing the RGB data (scale pixel values to the range [0, 1])
-    rgb_image = rgb_image / 255.0
+    target_size = (128, 128)
+    rgb_image_resized = zoom(rgb_image, (target_size[0] / rgb_image.shape[0],
+                                         target_size[1] / rgb_image.shape[1], 1))
+    dem_image_resized = zoom(dem_image, (target_size[0] / dem_image.shape[0],
+                                         target_size[1] / dem_image.shape[1]))
 
-    # Normalizing the DEM data based on the max elevation value
-    dem_image_resized = dem_image_resized / np.max(dem_image_resized)
+
+    # **Check for NaN or Inf in dem_image_resized after resizing**
+    if np.isnan(dem_image_resized).any() or np.isinf(dem_image_resized).any():
+        print(f"Warning: dem_image_resized contains NaN or Inf values after resizing! File: {dem_path}")
+
+
+    # Rgb images resized were having NaN value so we replaced them with numerical
+    rgb_image_resized = np.nan_to_num(rgb_image_resized, nan=0.0)
+
+    # Normalization to [-1, 1]
+
+    # Normalize the RGB data to [-1, 1]
+    rgb_image_resized = (rgb_image_resized / 127.5) - 1.0
+
+    # Normalize the DEM data to [-1, 1] with epsilon to prevent division by zero
+    epsilon = 1e-8  # Small constant to prevent division by zero
+    max_value = np.max(dem_image_resized)
+    dem_image_resized = dem_image_resized / (max_value + epsilon)
+    dem_image_resized = (dem_image_resized * 2.0) - 1.0
+
+    # Check for NaN or Inf in dem_image_resized after normalization
+    if np.isnan(dem_image_resized).any() or np.isinf(dem_image_resized).any():
+        print(f"Warning: dem_image_resized contains NaN or Inf values after normalization! File: {dem_path}")
+
+    # check for NaN or Inf in rgb_image_resized
+    if np.isnan(rgb_image_resized).any() or np.isinf(rgb_image_resized).any():
+        print(f"Warning: rgb_image_resized contains NaN or Inf values after normalization! File: {rgb_path}")
+
+    # Ensuring consistent data types to float32
+    rgb_image_resized = rgb_image_resized.astype(np.float32)
+    dem_image_resized = dem_image_resized.astype(np.float32)
+
+    # Clipping data in case of exceeding ranges
+    rgb_image_resized = np.clip(rgb_image_resized, -1.0, 1.0)
+    dem_image_resized = np.clip(dem_image_resized, -1.0, 1.0)
 
     # Stack RGB and DEM to create a 4-channel image (height, width, 4)
-    combined_image = np.dstack((rgb_image, dem_image_resized))
+    combined_image = np.dstack((rgb_image_resized, dem_image_resized))
 
-    print("Combined image shape before resizing:", combined_image.shape)
-
-    # Define target dimensions for resizing
-    target_size = (128, 128)
-    height_factor = target_size[0] / combined_image.shape[0]
-    width_factor = target_size[1] / combined_image.shape[1]
-
-    # Resize to (128, 128, 4) using zoom factors for height and width
-    combined_image_resized = zoom(combined_image, (height_factor, width_factor, 1))
-
-    print("Combined image shape after resizing:", combined_image_resized.shape)
+    print("Combined image shape:", combined_image.shape)
 
     # Save the combined image as a .npy file
     output_filename = os.path.join(output_folder, os.path.basename(rgb_path).replace('rgb_image_', 'combined_image_').replace('.tif', '.npy'))
-    np.save(output_filename, combined_image_resized)
+    np.save(output_filename, combined_image)
     print(f"Saved combined image: {output_filename}")
 
-    # Print the shapes of the resized images
-    print(f"Processed {os.path.basename(rgb_path)} and {os.path.basename(dem_path)}")
-    print("Resized RGB Image Shape:", rgb_image.shape)  # Should be (height, width, 3) for RGB
-    print("Resized DEM Image Shape:", dem_image_resized.shape)  # Should match RGB dimensions
+    # Check for NaN or Inf in combined_image
+    if np.isnan(combined_image).any() or np.isinf(combined_image).any():
+        print(f"Warning: combined_image contains NaN or Inf values! File: {output_filename}")
+
 
     return rgb_image, dem_image_resized
 
