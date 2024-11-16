@@ -35,7 +35,7 @@ def process_images(dem_path, rgb_path, output_folder):
                                          target_size[1] / dem_image.shape[1]))
 
 
-    # **Check for NaN or Inf in dem_image_resized after resizing**
+    # Check for NaN or Inf in dem_image_resized after resizing
     if np.isnan(dem_image_resized).any() or np.isinf(dem_image_resized).any():
         print(f"Warning: dem_image_resized contains NaN or Inf values after resizing! File: {dem_path}")
 
@@ -85,9 +85,6 @@ def process_images(dem_path, rgb_path, output_folder):
         print(f"Warning: combined_image contains NaN or Inf values! File: {output_filename}")
 
 
-    return rgb_image, dem_image_resized
-
-
 # Function to find and process all image pairs in a folder
 def process_all_images_in_folder(input_folder_path , output_folder):
     # Create output folder
@@ -108,8 +105,6 @@ def process_all_images_in_folder(input_folder_path , output_folder):
         rgb_path = os.path.join(input_folder_path , rgb_file)
         process_images(dem_path, rgb_path, output_folder)
 
-
-# Specify the folder containing the images and for output
 input_folder_path  = "/workspace/images"
 output_folder_path = "/workspace/preprocessed_data"
 process_all_images_in_folder(input_folder_path, output_folder_path)

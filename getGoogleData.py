@@ -1,3 +1,4 @@
+import random
 import ee
 
 # Authenticating and initializing Earth Engine
@@ -31,6 +32,20 @@ def get_dem_image(region):
     dem_image = ee.Image("USGS/SRTMGL1_003").clip(region)
     return dem_image
 
+def generate_grid_regions(bounds, box_width, box_height):
+    x_min, y_min, x_max, y_max = bounds
+    regions = []
+    x = x_min
+    while x + box_width <= x_max:
+        y = y_min
+        while y + box_height <= y_max:
+            region = ee.Geometry.Rectangle([x, y, x + box_width, y + box_height])
+            regions.append(region)
+            y += box_height
+        x += box_width
+    return regions
+
+
 # Exporting both RGB and DEM data to Google Drive
 def export_rgb_and_dem(region, num):
     # Fetching RGB and DEM data
@@ -45,7 +60,7 @@ def export_rgb_and_dem(region, num):
         image=rgb_image,
         description=f'rgb_image_{num}',
         folder='earth_engine_data',
-        scale=50,  # Setting resolution of meters per pixel
+        scale=50,  # meters per pixel
         region=region.getInfo()['coordinates'],
         fileFormat='GeoTIFF'
     )
@@ -55,7 +70,7 @@ def export_rgb_and_dem(region, num):
         image=dem_image,
         description=f'dem_image_{num}',
         folder='earth_engine_data',
-        scale=50,  # Setting resolution of meters per pixel
+        scale=50,  # meters per pixel
         region=region.getInfo()['coordinates'],
         fileFormat='GeoTIFF'
     )
@@ -66,9 +81,20 @@ def export_rgb_and_dem(region, num):
 
     print(f"Exporting task for RGB image {num} and DEM started.")
 
+
+base_bounds = [75.0, 25.0, 100.0, 40.0]
+box_width = 0.25  # in degrees
+box_height = 0.25
+
+grid_regions = generate_grid_regions(base_bounds, box_width, box_height)
+
+# Shuffle regions and select wanted number
+random.shuffle(grid_regions)
+num_regions = 1000  # Change
+selected_regions = grid_regions[:num_regions]
+
 # Automating the export process
-for num in range(1000):
-    mountainous_areas = get_mountainous_areas().geometry().bounds()
+for num, region in enumerate(selected_regions):
     export_rgb_and_dem(region, num)
 
 print("Export tasks started. Check Google Earth Engine Task Manager for progress.")
