@@ -13,11 +13,22 @@ def load_geotiff(path):
 
 # Function to process a single DEM and RGB image pair
 def process_images(dem_path, rgb_path, output_folder, global_min, global_max):
-    # Loading the RGB image and extracting only the first 3 bands (R, G, B)
-    rgb_image = load_geotiff(rgb_path)[:3, :, :]
+    # Loading the RGB image and extracting the R, G, B bands
+    # For Sentinel-2 imagery, bands 4 (Red), 3 (Green), 2 (Blue) correspond to indices 3, 2, 1 (zero-based indexing)
+    rgb_image_raw = load_geotiff(rgb_path)
+    rgb_image = rgb_image_raw[[3, 2, 1], :, :]
 
     # Reordering to (height, width, 3)
     rgb_image = np.transpose(rgb_image, (1, 2, 0))
+
+    # Replace NaN values in RGB images with zeros
+    rgb_image = np.nan_to_num(rgb_image, nan=0.0)
+
+    # Scale the RGB data from 0-10000 to 0-1 (Sentinel-2 reflectance values)
+    rgb_image_resized = rgb_image / 10000.0
+
+    # Clip values to [0, 1]
+    rgb_image_resized = np.clip(rgb_image_resized, 0.0, 1.0)
 
     # Load the DEM image and accessing the first band for DEM
     dem_image = load_geotiff(dem_path)[0]
@@ -25,10 +36,11 @@ def process_images(dem_path, rgb_path, output_folder, global_min, global_max):
     # Check for NaN or Inf in dem_image before resizing
     if np.isnan(dem_image).any() or np.isinf(dem_image).any():
         print(f"Warning: dem_image contains NaN or Inf values before resizing! File: {dem_path}")
+        dem_image = np.nan_to_num(dem_image, nan=0.0)
 
-    target_size = (128, 128)
-    rgb_image_resized = zoom(rgb_image, (target_size[0] / rgb_image.shape[0],
-                                         target_size[1] / rgb_image.shape[1], 1))
+    target_size = (256, 256)
+    rgb_image_resized = zoom(rgb_image_resized, (target_size[0] / rgb_image.shape[0],
+                                                 target_size[1] / rgb_image.shape[1], 1))
     dem_image_resized = zoom(dem_image, (target_size[0] / dem_image.shape[0],
                                          target_size[1] / dem_image.shape[1]))
 
@@ -36,34 +48,14 @@ def process_images(dem_path, rgb_path, output_folder, global_min, global_max):
     if np.isnan(dem_image_resized).any() or np.isinf(dem_image_resized).any():
         print(f"Warning: dem_image_resized contains NaN or Inf values after resizing! File: {dem_path}")
 
-    # Replace NaN values in RGB images with zeros
-    rgb_image_resized = np.nan_to_num(rgb_image_resized, nan=0.0)
-
-    # Normalization to [-1, 1]
-
-    # Normalize the RGB data to [-1, 1]
-    rgb_image_resized = (rgb_image_resized / 127.5) - 1.0
-
-    # Normalize the DEM data to [-1, 1] using global min and max
+    # Normalize the DEM data to [0, 1] using global min and max
     epsilon = 1e-8  # Small constant to prevent division by zero
     dem_image_resized = (dem_image_resized - global_min) / (global_max - global_min + epsilon)
-    dem_image_resized = (dem_image_resized * 2.0) - 1.0
-
-    # Check for NaN or Inf in dem_image_resized after normalization
-    if np.isnan(dem_image_resized).any() or np.isinf(dem_image_resized).any():
-        print(f"Warning: dem_image_resized contains NaN or Inf values after normalization! File: {dem_path}")
-
-    # Check for NaN or Inf in rgb_image_resized
-    if np.isnan(rgb_image_resized).any() or np.isinf(rgb_image_resized).any():
-        print(f"Warning: rgb_image_resized contains NaN or Inf values after normalization! File: {rgb_path}")
+    dem_image_resized = np.clip(dem_image_resized, 0.0, 1.0)
 
     # Ensuring consistent data types to float32
     rgb_image_resized = rgb_image_resized.astype(np.float32)
     dem_image_resized = dem_image_resized.astype(np.float32)
-
-    # Clipping data in case of exceeding ranges
-    rgb_image_resized = np.clip(rgb_image_resized, -1.0, 1.0)
-    dem_image_resized = np.clip(dem_image_resized, -1.0, 1.0)
 
     # Stack RGB and DEM to create a 4-channel image (height, width, 4)
     combined_image = np.dstack((rgb_image_resized, dem_image_resized))
@@ -99,8 +91,8 @@ def process_all_images_in_folder(input_folder_path, output_folder):
     for dem_file in dem_files:
         dem_path = os.path.join(input_folder_path, dem_file)
         dem_image = load_geotiff(dem_path)[0]
-        dem_min = np.min(dem_image)
-        dem_max = np.max(dem_image)
+        dem_min = np.nanmin(dem_image)
+        dem_max = np.nanmax(dem_image)
         if dem_min < global_min:
             global_min = dem_min
         if dem_max > global_max:

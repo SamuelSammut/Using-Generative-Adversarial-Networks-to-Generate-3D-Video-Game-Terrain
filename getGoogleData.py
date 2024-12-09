@@ -15,7 +15,7 @@ def get_mountainous_areas():
     return mountainous_areas
 
 # Defining a region of interest
-region = ee.Geometry.Rectangle([86.5, 27.5, 87.5, 28.5])
+region = ee.Geometry.Rectangle([10.0, 46.0, 15.0, 48.0])
 
 # Fetching RGB images from the Sentinel-2 Harmonized dataset
 def get_rgb_images(region):
@@ -60,7 +60,7 @@ def export_rgb_and_dem(region, num):
         image=rgb_image,
         description=f'rgb_image_{num}',
         folder='earth_engine_data',
-        scale=50,  # meters per pixel
+        scale=10,  # meters per pixel
         region=region.getInfo()['coordinates'],
         fileFormat='GeoTIFF'
     )
@@ -70,7 +70,7 @@ def export_rgb_and_dem(region, num):
         image=dem_image,
         description=f'dem_image_{num}',
         folder='earth_engine_data',
-        scale=50,  # meters per pixel
+        scale=10,  # meters per pixel
         region=region.getInfo()['coordinates'],
         fileFormat='GeoTIFF'
     )
@@ -82,7 +82,7 @@ def export_rgb_and_dem(region, num):
     print(f"Exporting task for RGB image {num} and DEM started.")
 
 
-base_bounds = [75.0, 25.0, 100.0, 40.0]
+base_bounds = [10.0, 46.0, 15.0, 48.0]
 box_width = 0.25  # in degrees
 box_height = 0.25
 
@@ -90,7 +90,7 @@ grid_regions = generate_grid_regions(base_bounds, box_width, box_height)
 
 # Shuffle regions and select wanted number
 random.shuffle(grid_regions)
-num_regions = 1000  # Change
+num_regions = 1000
 selected_regions = grid_regions[:num_regions]
 
 # Automating the export process

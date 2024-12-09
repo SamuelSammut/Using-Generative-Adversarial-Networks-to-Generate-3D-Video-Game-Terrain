@@ -5,7 +5,9 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.keras import layers
 
-def build_generator(noise_dim, output_shape=(128, 128, 4)):
+os.makedirs('generated_images', exist_ok=True)
+
+def build_generator(noise_dim, output_shape=(256, 256, 4)):
     """
     Builds the Generator model that transforms a noise vector into synthetic RGB+DEM data.
     Parameters:
@@ -25,33 +27,46 @@ def build_generator(noise_dim, output_shape=(128, 128, 4)):
     # Each neuron in a layer receives inputs from neurons in the previous layer, for each input, it applies a weight, which is a value that determines the strength or importance of that input to the neuron's output. These are learned through training.
     # A bias term is added to the weighted sum, which gives the model more flexibility to fit the data by shifting the output, and the weighted sum and bias are passed through and activation function, such as ReLU, which help introduce non-linearity into the network, allowing it to model complex relationships.
     # First, we add a dense layer as defined above and 7*7*256 is the number of neurons in the layer, a form that can be upscaled into an image. No bias is used, and the input shape is the vector of a random noise - starting point of the generator.
-    model.add(layers.Dense(16 * 16 * 256, use_bias=False, input_shape=(noise_dim,)))
+    model.add(layers.Dense(4 * 4 * 1024, use_bias=False, input_shape=(noise_dim,)))
 
     # Normalise the output of the previous layer, scaling the activations to stabilise the training process, helping the network converge faster and avoid issues like vanishing and exploding gradients.
-    # Testing out removing this
-    # model.add(layers.BatchNormalization())
+    # Re-enabling BatchNormalization
+    model.add(layers.BatchNormalization())
 
     # Introduces Rectified Linear Unit activation function, which allows a small, non-zero gradient when the layer output is negative - helps avoid dead neurons which improves gradient flow.
     model.add(layers.LeakyReLU())
 
-    # Reshape the output into a 7x7x256 feature map
-    model.add(layers.Reshape((16, 16, 256)))
+    # Reshape the output into a 16x16x256 feature map
+    model.add(layers.Reshape((4, 4, 1024)))
 
     # Layer 2: Transforms low-dimensional input from the dense layer into a higher-dimensional one for image-like representation.
     # 128 represents the number of filters, outputting 128 feature maps. Each map represents a distinct set of features that the model will learn, (5, 5) is the kernel size, meaning each filter is a 5x5 grid.
     # stride value means that filter will move one pixel at a time vertically and horizontally across the input, padding means that output will have same dimensions as input, and bias against removes bias.
-    model.add(layers.Conv2DTranspose(128, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    model.add(layers.Conv2DTranspose(512, (5, 5), strides=(2, 2), padding='same', use_bias=False))
 
-    # Testing out removing this
-    # model.add(layers.BatchNormalization())
+    # Re-enabling BatchNormalization
+    model.add(layers.BatchNormalization())
     model.add(layers.LeakyReLU())
 
     # Layer 3: Another upsampling layer, similar settings to previous layer, however the number of filters is halved since it doesn't need them to capture complex patterns in the layer. The initial layer needs more filters to learn abstract features.
     # The stride value change is the key difference, it is doubles, meaning that we are doubling the spatial dimensions, upsampling to increase the width and height of the output
-    model.add(layers.Conv2DTranspose(64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    model.add(layers.Conv2DTranspose(256, (5, 5), strides=(2, 2), padding='same', use_bias=False))
 
-    # Testing out removing this
-    # model.add(layers.BatchNormalization())
+    # Re-enabling BatchNormalization
+    model.add(layers.BatchNormalization())
+    model.add(layers.LeakyReLU())
+
+    # Added more layers for upsampling
+    model.add(layers.Conv2DTranspose(128, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    model.add(layers.BatchNormalization())
+    model.add(layers.LeakyReLU())
+
+    model.add(layers.Conv2DTranspose(64, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    model.add(layers.BatchNormalization())
+    model.add(layers.LeakyReLU())
+
+    model.add(layers.Conv2DTranspose(32, (5, 5), strides=(2, 2), padding='same', use_bias=False))
+    model.add(layers.BatchNormalization())
     model.add(layers.LeakyReLU())
 
     # Layer 4: Final upsampling to match the desired output shape for RGB and DEM (RGB 3 channels + DEM 1 channel = 4 channels)
@@ -76,6 +91,15 @@ def build_discriminator(input_shape):
 
     # Layer 2: Another convolutional layer with increased filters. Upsamples the image, expanding spatial dimensions to increase resolution.
     model.add(layers.Conv2D(128, (5, 5), strides=(2, 2), padding='same'))
+    model.add(layers.LeakyReLU())
+    model.add(layers.Dropout(0.3))
+
+    # added more layers for downsampling
+    model.add(layers.Conv2D(256, (5, 5), strides=(2, 2), padding='same'))
+    model.add(layers.LeakyReLU())
+    model.add(layers.Dropout(0.3))
+
+    model.add(layers.Conv2D(512, (5, 5), strides=(2, 2), padding='same'))
     model.add(layers.LeakyReLU())
     model.add(layers.Dropout(0.3))
 
@@ -119,19 +143,16 @@ def discriminator_loss(real_output, fake_output):
 
     # real_loss = cross_entropy(tf.ones_like(real_output), real_output)
     real_labels = tf.ones_like(real_output) * 0.9  # Label smoothing
-    fake_labels = tf.zeros_like(fake_output)
+    fake_labels = tf.zeros_like(fake_output) + 0.1  # Label smoothing for fake labels
     real_loss = cross_entropy(real_labels, real_output)
     fake_loss = cross_entropy(fake_labels, fake_output)
     return real_loss + fake_loss
 
-# Setting up optimisers: adjusts model's parameters to minimise loss function. Uses Adaptive moment estimation(Adam) to adapt learning rate dynamically for each parameter.
-# Learning rate: 1e-4 = 0.0001 specifies the step size which is the amount by which weights are updates with each training iteration
-# If it's too high the model becomes unstable, too low it would take a long time or get stuck in a local minimum.
+# Adjusting learning rates: setting lower learning rate for discriminator to balance learning
 generator_optimizer = tf.keras.optimizers.Adam(1e-4)
-discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
+discriminator_optimizer = tf.keras.optimizers.Adam(5e-5)
 
 # Step 5: Training Step with RGB+DEM Data
-# @tf.function
 def train_step(rgb_dem_images, generator, discriminator, noise_dim):
     """
     A single training step for the GAN.
@@ -163,15 +184,14 @@ def train_step(rgb_dem_images, generator, discriminator, noise_dim):
         # Check for NaN or Inf in generated images
         tf.debugging.check_numerics(generated_images, "Generated images contain NaN or Inf")
 
-        # Discriminator evaluates both real and fake images by giving a value from 0 to 1 as per the sigmoid activation function
-        real_output = discriminator(rgb_dem_images, training=True)
-        fake_output = discriminator(generated_images, training=True)
+        # Adding noise to discriminator inputs to prevent it from becoming too confident
+        noise_factor = 0.1
+        real_images_noisy = rgb_dem_images + noise_factor * tf.random.normal(shape=rgb_dem_images.shape)
+        generated_images_noisy = generated_images + noise_factor * tf.random.normal(shape=generated_images.shape)
 
-        # Clip outputs to prevent exact 0 or 1 values
-        # CHANGE: Removed clipping of discriminator outputs
-        # epsilon = 1e-7
-        # real_output = tf.clip_by_value(real_output, epsilon, 1.0 - epsilon)
-        # fake_output = tf.clip_by_value(fake_output, epsilon, 1.0 - epsilon)
+        # Discriminator evaluates both real and fake images by giving a value from 0 to 1 as per the sigmoid activation function
+        real_output = discriminator(real_images_noisy, training=True)
+        fake_output = discriminator(generated_images_noisy, training=True)
 
         # **Check for NaN or Inf in discriminator outputs**
         tf.debugging.check_numerics(real_output, "Discriminator output on real images contains NaN or Inf")
@@ -188,16 +208,22 @@ def train_step(rgb_dem_images, generator, discriminator, noise_dim):
     # .gradient() calculates the gradients of gen_loss with respect to the generator's trainable variables.
     # A gradient is the derivative of the loss function with respect to each weight. It shows how much the loss would increase or decrease if we change a specific weight.
     gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
-    # CHANGE: Removed gradient clipping
-    # gradients_of_generator, _ = tf.clip_by_global_norm(gradients_of_generator, 5.0)
+    # Re-enabling gradient clipping to prevent exploding gradients
+    gradients_of_generator, _ = tf.clip_by_global_norm(gradients_of_generator, 5.0)
     # apply_gradients() updates the generator's weights by applying these gradients
     generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
 
     # Same for discriminator
     gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
-    # CHANGE: Removed gradient clipping
-    # gradients_of_discriminator, _ = tf.clip_by_global_norm(gradients_of_discriminator, 5.0)
+    # Re-enabling gradient clipping for discriminator
+    gradients_of_discriminator, _ = tf.clip_by_global_norm(gradients_of_discriminator, 5.0)
     discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
+
+    # Compute gradient norms for logging
+    gen_grad_norm = tf.linalg.global_norm(gradients_of_generator)
+    disc_grad_norm = tf.linalg.global_norm(gradients_of_discriminator)
+    print(f"Generator gradient norm: {gen_grad_norm}")
+    print(f"Discriminator gradient norm: {disc_grad_norm}")
 
     return gen_loss, disc_loss
 
@@ -210,23 +236,39 @@ def train(dataset, epochs, generator, discriminator, noise_dim):
             print("Found nan or inf in the dataset!")
             break
 
+    gen_losses = []
+    disc_losses = []
+
     # Loop over all epochs: one epoch is one full pass through the entire dataset
     for epoch in range(epochs):
         print(f"Starting epoch {epoch+1}/{epochs}")
-        gen_losses = []
-        disc_losses = []
+        epoch_gen_losses = []
+        epoch_disc_losses = []
         # Within each epoch, we divide the dataset into small chunks called batches
         # For each batch, we perform the training step which updates the generator and discriminator and after each epoch we generate and save the images
         for step, rgb_dem_batch in enumerate(dataset):
             gen_loss, disc_loss = train_step(rgb_dem_batch, generator, discriminator, noise_dim)
             print(f"Step {step + 1}, Generator loss: {gen_loss}, Discriminator loss: {disc_loss}")
-            gen_losses.append(gen_loss)
-            disc_losses.append(disc_loss)
+            epoch_gen_losses.append(gen_loss.numpy())
+            epoch_disc_losses.append(disc_loss.numpy())
             print(f"Completed step {step + 1}")
-        avg_gen_loss = sum(gen_losses) / len(gen_losses)
-        avg_disc_loss = sum(disc_losses) / len(disc_losses)
+        avg_gen_loss = sum(epoch_gen_losses) / len(epoch_gen_losses)
+        avg_disc_loss = sum(epoch_disc_losses) / len(epoch_disc_losses)
+        gen_losses.append(avg_gen_loss)
+        disc_losses.append(avg_disc_loss)
         print(f"Epoch {epoch + 1}, Generator loss: {avg_gen_loss}, Discriminator loss: {avg_disc_loss}")
         generate_and_save_images(generator, epoch + 1, noise_dim)
+
+        # Plot losses after each epoch
+        plt.figure(figsize=(10, 5))
+        plt.plot(gen_losses, label='Generator Loss')
+        plt.plot(disc_losses, label='Discriminator Loss')
+        plt.title('Training Losses')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.savefig('training_losses.png')
+        plt.close()
 
 # A way to visualise the progress of the model throughout training
 def generate_and_save_images(model, epoch, noise_dim):
@@ -254,11 +296,9 @@ def generate_and_save_images(model, epoch, noise_dim):
         ax.axis('off')
 
     # Save the figure to a file
-    plt.savefig(f'generated_images_epoch_{epoch}_rgb.png')
-    plt.show()
+    plt.savefig(os.path.join('generated_images', f'generated_images_epoch_{epoch}_rgb.png'))
     plt.close(fig)
 
-    # CHANGE: Plot the DEM channel
     # Plot the DEM channel
     fig_dem, axes_dem = plt.subplots(4, 4, figsize=(8, 8))
     fig_dem.suptitle(f'Epoch {epoch} - DEM Channel', fontsize=16)
@@ -276,9 +316,29 @@ def generate_and_save_images(model, epoch, noise_dim):
         ax.axis('off')
 
     # Save the DEM figure to a file
-    plt.savefig(f'generated_images_epoch_{epoch}_dem.png')
-    plt.show()
+    plt.savefig(os.path.join('generated_images', f'generated_images_epoch_{epoch}_dem.png'))
     plt.close(fig_dem)
+
+
+def generate_full_resolution_image(generator, noise_dim, output_filename):
+    # Generating one large image
+    noise = tf.random.normal([1, noise_dim])  # Single image
+    generated_image = generator(noise, training=False)
+
+    # Converting from [-1,1] to [0,1]
+    generated_image = (generated_image.numpy()[0] + 1) / 2.0
+
+    # Saving RGB and DEM separately
+    rgb_image = generated_image[:, :, :3]
+    dem_image = generated_image[:, :, 3]
+
+    # Save as npy
+    # np.save(output_filename + '_rgb.npy', rgb_image)
+    # np.save(output_filename + '_dem.npy', dem_image)
+
+    # png
+    plt.imsave(output_filename + '_rgb.png', rgb_image)
+    plt.imsave(output_filename + '_dem.png', dem_image, cmap='gray')
 
 
 def load_dataset(output_folder_path, batch_size):
@@ -307,7 +367,7 @@ def load_dataset(output_folder_path, batch_size):
 if __name__ == "__main__":
     # Dimension of the noise vector
     noise_dim = 100
-    output_shape = (128, 128, 4)
+    output_shape = (256, 256, 4)
 
     batch_size = 16  # CHANGE: Increased batch size from 8 to 16
     epochs = 1000
@@ -333,3 +393,4 @@ if __name__ == "__main__":
 
     # Start training
     train(dataset, epochs, generator, discriminator, noise_dim)
+    generator.save('generator_model.h5')
