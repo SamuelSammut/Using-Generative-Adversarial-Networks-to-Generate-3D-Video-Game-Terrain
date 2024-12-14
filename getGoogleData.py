@@ -4,36 +4,35 @@ import ee
 # Authenticating and initializing Earth Engine
 ee.Initialize(project='earth-engine-project-gan')
 
-# Identifying mountainous areas using slope
-def get_mountainous_areas():
-    # SRTM DEM dataset
-    dem = ee.Image("USGS/SRTMGL1_003")
-    # Calculating slope from DEM
-    slope = ee.Terrain.slope(dem)
-    # Defining mountainous terrain with slope > 30 degrees
-    mountainous_areas = slope.gt(30)
-    return mountainous_areas
 
-# Defining a region of interest
-region = ee.Geometry.Rectangle([10.0, 46.0, 15.0, 48.0])
+def get_grassy_hill_areas():
+    areas = [
+        ee.Geometry.Rectangle([5.0, 45.0, 10.0, 47.0]),  # Alps region
+        ee.Geometry.Rectangle([-1.5, 42.0, 3.0, 43.5]),  # Pyrenees region
+        ee.Geometry.Rectangle([14.0, 49.0, 18.0, 50.5]),  # Czech hills
+    ]
+    return areas
 
-# Fetching RGB images from the Sentinel-2 Harmonized dataset
+
 def get_rgb_images(region):
-    # Updated Sentinel-2 Harmonized data, non-harmonized variant was deprecated and not working
     rgb_images = ee.ImageCollection("COPERNICUS/S2_HARMONIZED")
     rgb_images = rgb_images.filterBounds(region) \
-                           .filterDate('2022-01-01', '2022-12-31') \
-                           .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))  # Filtering images with low cloud cover
+        .filterDate('2022-01-01', '2022-12-31') \
+        .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10))  # Filtering images with low cloud cover
     return rgb_images.median().clip(region)  # Clipping the image to the region
 
 # Fetching DEM image from the SRTM dataset
 def get_dem_image(region):
-    # Clipping DEM to the region
-    dem_image = ee.Image("USGS/SRTMGL1_003").clip(region)
-    return dem_image
+    return ee.Image("USGS/SRTMGL1_003").clip(region)
+
 
 def generate_grid_regions(bounds, box_width, box_height):
-    x_min, y_min, x_max, y_max = bounds
+    # Extract bounding box values from the bounds (list of coordinates)
+    x_min = bounds[0][0]
+    y_min = bounds[0][1]
+    x_max = bounds[2][0]
+    y_max = bounds[2][1]
+
     regions = []
     x = x_min
     while x + box_width <= x_max:
@@ -46,16 +45,12 @@ def generate_grid_regions(bounds, box_width, box_height):
     return regions
 
 
-# Exporting both RGB and DEM data to Google Drive
 def export_rgb_and_dem(region, num):
-    # Fetching RGB and DEM data
     rgb_image = get_rgb_images(region)
     dem_image = get_dem_image(region)
 
-    # Log the geometry for debugging
     print(f"Region for clipping RGB and DEM data: {region.getInfo()}")
 
-    # Exporting RGB to Google Drive
     task_rgb = ee.batch.Export.image.toDrive(
         image=rgb_image,
         description=f'rgb_image_{num}',
@@ -65,7 +60,6 @@ def export_rgb_and_dem(region, num):
         fileFormat='GeoTIFF'
     )
 
-    # Exporting DEM to Google Drive
     task_dem = ee.batch.Export.image.toDrive(
         image=dem_image,
         description=f'dem_image_{num}',
@@ -75,25 +69,26 @@ def export_rgb_and_dem(region, num):
         fileFormat='GeoTIFF'
     )
 
-    # Starting the export tasks
     task_rgb.start()
     task_dem.start()
-
     print(f"Exporting task for RGB image {num} and DEM started.")
 
 
-base_bounds = [10.0, 46.0, 15.0, 48.0]
-box_width = 0.25  # in degrees
-box_height = 0.25
+# Main script logic
+areas = get_grassy_hill_areas()
+box_width = 0.5  # Increased to reduce duplicates
+box_height = 0.5
 
-grid_regions = generate_grid_regions(base_bounds, box_width, box_height)
+all_regions = []
+for area in areas:
+    bounds = area.bounds().getInfo()['coordinates'][0]  # Get the bounding box
+    all_regions.extend(generate_grid_regions(bounds, box_width, box_height))
 
-# Shuffle regions and select wanted number
-random.shuffle(grid_regions)
+# Shuffle regions to randomize export
+random.shuffle(all_regions)
 num_regions = 1000
-selected_regions = grid_regions[:num_regions]
+selected_regions = all_regions[:num_regions]
 
-# Automating the export process
 for num, region in enumerate(selected_regions):
     export_rgb_and_dem(region, num)
 
