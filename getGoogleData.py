@@ -68,7 +68,6 @@ def export_rgb_and_dem(region, num):
         rgb_image = get_rgb_images(region)
         dem_image = get_dem_image(region)
 
-        # Adjusting scale for smaller file size to avoid tiling
         scale = 20
 
         task_rgb = ee.batch.Export.image.toDrive(
@@ -78,7 +77,7 @@ def export_rgb_and_dem(region, num):
             scale=scale,
             region=region.getInfo()['coordinates'],
             fileFormat='GeoTIFF',
-            maxPixels=1e13  # Allows larger regions to export as a single file
+            maxPixels=1e13
         )
         task_rgb.start()
         print(f"Started RGB export task {num}")
@@ -110,11 +109,10 @@ try:
     all_regions = []
     for area in areas:
         bounds = area.bounds().getInfo()['coordinates'][0]
-        grid_regions = generate_grid_regions(bounds, box_width, box_height)
+        # Use round_coordinates for cleaner printing
         cleaned_bounds = round_coordinates(bounds)
+        grid_regions = generate_grid_regions(bounds, box_width, box_height)
         print(f"Generated {len(grid_regions)} grid regions for area: {cleaned_bounds}")
-        bounds = round_coordinates(cleaned_bounds)
-        print(f"Generated {len(grid_regions)} grid regions for area: {bounds}")
         all_regions.extend(grid_regions)
 
     random.shuffle(all_regions)
