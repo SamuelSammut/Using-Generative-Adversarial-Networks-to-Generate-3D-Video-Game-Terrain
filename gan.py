@@ -364,12 +364,35 @@ def load_dataset(output_folder_path, batch_size):
 
     return dataset
 
+
+def get_unique_filename(base_path, base_name):
+    """
+    Generates a unique filename if the file already exists in the directory.
+
+    Parameters:
+        base_path (str): Path to the folder where the file will be saved.
+        base_name (str): Base name for the file (without extension).
+
+    Returns:
+        str: A unique file path with no overwriting.
+    """
+    os.makedirs(base_path, exist_ok=True)
+
+    index = 0
+    file_path = os.path.join(base_path, f"{base_name}.h5")
+    while os.path.exists(file_path):
+        index += 1
+        file_path = os.path.join(base_path, f"{base_name}_{index}.h5")
+
+    return file_path
+
+
 if __name__ == "__main__":
     # Dimension of the noise vector
     noise_dim = 100
     output_shape = (256, 256, 4)
 
-    batch_size = 16  # CHANGE: Increased batch size from 8 to 16
+    batch_size = 16
     epochs = 1000
 
     # Build the generator and discriminator
@@ -393,4 +416,9 @@ if __name__ == "__main__":
 
     # Start training
     train(dataset, epochs, generator, discriminator, noise_dim)
-    generator.save('generator_model.h5')
+
+    # Save generator model in a unique filename under 'saved_models' folder
+    saved_models_folder = "saved_models"
+    generator_model_path = get_unique_filename(saved_models_folder, "generator_model")
+    generator.save(generator_model_path)
+    print(f"Generator model saved to: {generator_model_path}")
