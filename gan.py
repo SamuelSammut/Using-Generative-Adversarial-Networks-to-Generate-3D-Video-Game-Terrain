@@ -227,97 +227,99 @@ def train_step(rgb_dem_images, generator, discriminator, noise_dim):
 
     return gen_loss, disc_loss
 
+
 def train(dataset, epochs, generator, discriminator, noise_dim):
     print("Started training")
-
-    # Check for nan or inf in dataset
-    for batch in dataset:
-        if tf.reduce_any(tf.math.is_nan(batch)) or tf.reduce_any(tf.math.is_inf(batch)):
-            print("Found nan or inf in the dataset!")
-            break
 
     gen_losses = []
     disc_losses = []
 
-    # Loop over all epochs: one epoch is one full pass through the entire dataset
     for epoch in range(epochs):
-        print(f"Starting epoch {epoch+1}/{epochs}")
+        print(f"Starting epoch {epoch + 1}/{epochs}")
         epoch_gen_losses = []
         epoch_disc_losses = []
-        # Within each epoch, we divide the dataset into small chunks called batches
-        # For each batch, we perform the training step which updates the generator and discriminator and after each epoch we generate and save the images
+
         for step, rgb_dem_batch in enumerate(dataset):
+            # Visualize a batch of training data (only in the first epoch and step)
+            if epoch == 0 and step == 0:
+                fig, axes = plt.subplots(2, 4, figsize=(16, 8))
+                for i in range(min(rgb_dem_batch.shape[0], 4)):
+                    img = rgb_dem_batch[i].numpy()
+                    # RGB channels
+                    axes[0, i].imshow(img[:, :, :3])
+                    axes[0, i].set_title(f"Input RGB {i + 1}")
+                    axes[0, i].axis('off')
+                    # DEM channel
+                    axes[1, i].imshow(img[:, :, 3], cmap='terrain')
+                    axes[1, i].set_title(f"Input DEM {i + 1}")
+                    axes[1, i].axis('off')
+                plt.tight_layout()
+                plt.savefig(f"training_input_epoch_{epoch + 1}_step_{step + 1}.png")
+                plt.close()
+
+            # Perform a single training step
             gen_loss, disc_loss = train_step(rgb_dem_batch, generator, discriminator, noise_dim)
-            print(f"Step {step + 1}, Generator loss: {gen_loss}, Discriminator loss: {disc_loss}")
             epoch_gen_losses.append(gen_loss.numpy())
             epoch_disc_losses.append(disc_loss.numpy())
-            print(f"Completed step {step + 1}")
+
         avg_gen_loss = sum(epoch_gen_losses) / len(epoch_gen_losses)
         avg_disc_loss = sum(epoch_disc_losses) / len(epoch_disc_losses)
         gen_losses.append(avg_gen_loss)
         disc_losses.append(avg_disc_loss)
-        print(f"Epoch {epoch + 1}, Generator loss: {avg_gen_loss}, Discriminator loss: {avg_disc_loss}")
         generate_and_save_images(generator, epoch + 1, noise_dim)
 
-        # Plot losses after each epoch
-        plt.figure(figsize=(10, 5))
-        plt.plot(gen_losses, label='Generator Loss')
-        plt.plot(disc_losses, label='Discriminator Loss')
-        plt.title('Training Losses')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.legend()
-        plt.savefig('training_losses.png')
-        plt.close()
+    print("Training completed.")
+
 
 # A way to visualise the progress of the model throughout training
 def generate_and_save_images(model, epoch, noise_dim):
     # Generate a batch of images
     noise = tf.random.normal([16, noise_dim])
-
-    # Set training = false for inference mode
     generated_images = model(noise, training=False)
 
-    # Set up the plot for a 4x4 grid of generated images
-    fig, axes = plt.subplots(4, 4, figsize=(8, 8))
-    fig.suptitle(f'Epoch {epoch} - RGB Channels', fontsize=16)
+    # Debug output for the first image in the batch
+    img_debug = generated_images[0].numpy()
+    print(f"Generated Image Debug - Min: {img_debug.min()}, Max: {img_debug.max()}")
 
-    for i, ax in enumerate(axes.flat):
-        # Extract image from the batch and remove the last channel if grayscale
+    # Visualize RGB Channels
+    fig_rgb, axes_rgb = plt.subplots(4, 4, figsize=(8, 8))
+    fig_rgb.suptitle(f'Epoch {epoch} - RGB Channels', fontsize=16)
+
+    for i, ax in enumerate(axes_rgb.flat):
         img = generated_images[i].numpy()
 
-        # Clip image to range [0, 1] for display: rescale from [-1, 1] to [0, 1]
-        img_rgb = (img[:, :, :3] + 1) / 2.0
+        # Extract RGB channels and rescale from [-1, 1] to [0, 1]
+        rgb_image = (img[:, :, :3] + 1) / 2.0
 
-        # Display the image: handle grayscale and RGB+DEM (if needed, split channels here)
-        ax.imshow(img_rgb)
+        for c in range(3):  # Loop through R, G, B channels
+            p2, p98 = np.percentile(rgb_image[:, :, c], (2, 98))
+            print(f"Generated RGB {i + 1} Band {c + 1} Percentiles: p2={p2}, p98={p98}")
+            rgb_image[:, :, c] = np.clip((rgb_image[:, :, c] - p2) / (p98 - p2 + 1e-8), 0, 1)
 
-        # Hide axes
+        ax.imshow(rgb_image)
         ax.axis('off')
 
-    # Save the figure to a file
+    plt.tight_layout()
     plt.savefig(os.path.join('generated_images', f'generated_images_epoch_{epoch}_rgb.png'))
-    plt.close(fig)
+    plt.close(fig_rgb)
 
-    # Plot the DEM channel
+    # Visualize DEM Channel
     fig_dem, axes_dem = plt.subplots(4, 4, figsize=(8, 8))
     fig_dem.suptitle(f'Epoch {epoch} - DEM Channel', fontsize=16)
 
     for i, ax in enumerate(axes_dem.flat):
-        # Extract the DEM channel
         img = generated_images[i].numpy()
-        dem_channel = img[:, :, 3]
-        dem_channel = (dem_channel + 1) / 2.0  # Rescale from [-1,1] to [0,1]
 
-        # Display the DEM channel as a grayscale image
-        ax.imshow(dem_channel, cmap='gray')
+        dem_image = (img[:, :, 3] + 1) / 2.0
 
-        # Hide axes
+        ax.imshow(dem_image, cmap='terrain')
         ax.axis('off')
 
-    # Save the DEM figure to a file
+    plt.tight_layout()
     plt.savefig(os.path.join('generated_images', f'generated_images_epoch_{epoch}_dem.png'))
     plt.close(fig_dem)
+
+    print(f"Saved generated images for Epoch {epoch}.")
 
 
 def generate_full_resolution_image(generator, noise_dim, output_filename):
@@ -392,7 +394,7 @@ if __name__ == "__main__":
     noise_dim = 100
     output_shape = (256, 256, 4)
 
-    batch_size = 16
+    batch_size = 32
     epochs = 1000
 
     # Build the generator and discriminator

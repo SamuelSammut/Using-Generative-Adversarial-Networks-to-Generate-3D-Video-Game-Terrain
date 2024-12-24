@@ -8,7 +8,7 @@ import os
 os.makedirs('inference_outputs', exist_ok=True)
 
 # Load the trained generator
-generator = load_model('generator_model.h5', compile=False)
+generator = load_model('saved_models/generator_model.h5', compile=False)
 
 # Set noise dimension
 noise_dim = 100

@@ -9,30 +9,40 @@ def load_geotiff(path):
         array = dataset.read()
         return array
 
+
+def stretch_rgb(image):
+    stretched_image = np.zeros_like(image, dtype=np.float32)
+    for i in range(image.shape[2]):  # Loop through R, G, B bands
+        band = image[:, :, i]
+        p2, p98 = np.percentile(band, (2, 98))  # 2nd and 98th percentiles
+        if p98 > p2:  # Avoid division by zero
+            stretched_band = np.clip((band - p2) / (p98 - p2), 0, 1)
+        else:
+            stretched_band = np.zeros_like(band, dtype=np.float32)  # All zeros if percentiles are invalid
+        stretched_image[:, :, i] = stretched_band
+    return stretched_image
+
+
 # Function to process a single DEM and RGB image pair
 def process_images(dem_path, rgb_path, output_folder, global_min, global_max):
     rgb_image_raw = load_geotiff(rgb_path)
-    rgb_image = rgb_image_raw[[3, 2, 1], :, :]
-    rgb_image = np.transpose(rgb_image, (1, 2, 0))
-    rgb_image = np.nan_to_num(rgb_image, nan=0.0)
-    rgb_image_resized = np.clip(rgb_image / 10000.0, 0.0, 1.0)
     dem_image = load_geotiff(dem_path)[0]
 
-    if np.isnan(dem_image).any() or np.isinf(dem_image).any():
-        print(f"Warning: dem_image contains NaN or Inf values before resizing! File: {dem_path}")
-        dem_image = np.nan_to_num(dem_image, nan=0.0)
+    # Extract and stretch RGB
+    rgb_image = np.transpose(rgb_image_raw[[3, 2, 1], :, :], (1, 2, 0))
+    rgb_image = np.nan_to_num(rgb_image, nan=0.0)
+    rgb_image = stretch_rgb(rgb_image)
 
-    target_size = (256, 256)
-    rgb_image_resized = zoom(rgb_image_resized, (target_size[0] / rgb_image.shape[0],
-                                                 target_size[1] / rgb_image.shape[1], 1))
-    dem_image_resized = zoom(dem_image, (target_size[0] / dem_image.shape[0],
-                                         target_size[1] / dem_image.shape[1]))
+    # Normalize DEM
+    dem_image = np.nan_to_num(dem_image, nan=0.0)
+    dem_image_resized = zoom(dem_image, (256 / dem_image.shape[0], 256 / dem_image.shape[1]))
+    dem_image_resized = np.clip((dem_image_resized - global_min) / (global_max - global_min + 1e-8), 0, 1)
 
-    dem_image_resized = np.clip((dem_image_resized - global_min) / (global_max - global_min + 1e-8), 0.0, 1.0)
-    rgb_image_resized = rgb_image_resized.astype(np.float32)
-    dem_image_resized = dem_image_resized.astype(np.float32)
+    # Resize RGB
+    rgb_image_resized = zoom(rgb_image, (256 / rgb_image.shape[0], 256 / rgb_image.shape[1], 1))
+
+    # Combine and save
     combined_image = np.dstack((rgb_image_resized, dem_image_resized))
-
     output_filename = os.path.join(output_folder, os.path.basename(rgb_path).replace('rgb_image_', 'combined_image_').replace('.tif', '.npy'))
     np.save(output_filename, combined_image)
     print(f"Saved combined image: {output_filename}")
