@@ -1,4 +1,4 @@
 docker run --gpus all -it `
-  -v "C:/Users/samue/Desktop/GAN_3D_Terrain:/workspace" `
+  -v "C:/Users/samue/Desktop/Using-Generative-Adversarial-Networks-to-Generate-3D-Video-Game-Terrain:/workspace" `
   -v "$env:USERPROFILE/.config/earthengine:/root/.config/earthengine" `
   tensorflow/tensorflow:2.14.0-gpu bash

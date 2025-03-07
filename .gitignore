@@ -1,2 +1,12 @@
 .idea/
 .venv/
+combined_dem.npy
+combined_rgb.npy
+generated_images/
+inference_outputs/
+output_tiles/
+preprocessed_data/
+saved_models/
+big_dem.tif
+big_rgb.tif
+run-docker.txt
