@@ -1,6 +1,7 @@
-python create_terrain.py \
-  --model-path=saved_models/generator_model.h5 \
-  --big-grid=50x50\
-  --overlap=54 \
-  --edge-match-tries=20 \
-  --output-folder=large_out
+python create_terrain.py\
+  --model-path saved_models/generator_model.h5\
+  --big-grid 16x16 \
+  --target-final-size 16129 \
+  --overlap 54 \
+  --edge-match-tries 20 \
+  --output-folder high_altitude_flight

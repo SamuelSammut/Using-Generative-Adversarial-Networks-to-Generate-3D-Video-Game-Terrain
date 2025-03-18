@@ -10,3 +10,7 @@ saved_models/
 big_dem.tif
 big_rgb.tif
 run-docker.txt
+preprocessed_data_preview.png
+terrain_outputs/
+high_altitude_flight/
+large_out/

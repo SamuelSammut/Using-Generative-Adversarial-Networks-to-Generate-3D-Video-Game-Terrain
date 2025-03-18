@@ -5,7 +5,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.keras import layers
 
-os.makedirs('generated_images', exist_ok=True)
+os.makedirs('../generated_images', exist_ok=True)
 
 def build_generator(noise_dim, output_shape=(256, 256, 4)):
     """
@@ -300,7 +300,7 @@ def generate_and_save_images(model, epoch, noise_dim):
         ax.axis('off')
 
     plt.tight_layout()
-    plt.savefig(os.path.join('generated_images', f'generated_images_epoch_{epoch}_rgb.png'))
+    plt.savefig(os.path.join('../generated_images', f'generated_images_epoch_{epoch}_rgb.png'))
     plt.close(fig_rgb)
 
     # Visualize DEM Channel
@@ -316,7 +316,7 @@ def generate_and_save_images(model, epoch, noise_dim):
         ax.axis('off')
 
     plt.tight_layout()
-    plt.savefig(os.path.join('generated_images', f'generated_images_epoch_{epoch}_dem.png'))
+    plt.savefig(os.path.join('../generated_images', f'generated_images_epoch_{epoch}_dem.png'))
     plt.close(fig_dem)
 
     print(f"Saved generated images for Epoch {epoch}.")

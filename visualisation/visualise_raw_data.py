@@ -98,6 +98,6 @@ def visualize_rgb_dem_pairs(input_folder, output_path, grid_size=(4, 4)):
 
 # Example usage
 if __name__ == "__main__":
-    input_folder = "/workspace/images"  # Update with your folder path
+    input_folder = "/workspace/images"
     output_path = "preview_raw_grid_debug.png"
     visualize_rgb_dem_pairs(input_folder, output_path, grid_size=(4, 4))
