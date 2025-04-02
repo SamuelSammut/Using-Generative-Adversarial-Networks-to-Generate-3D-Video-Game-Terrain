@@ -3,6 +3,8 @@ import argparse
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model
+import rasterio
+from rasterio.transform import from_origin
 from PIL import Image
 import re
 
@@ -202,6 +204,26 @@ def save_rgb_dem(rgb, dem, rgb_filename, dem_filename):
     Image.fromarray(dem_16bit, mode="I;16").save(dem_filename, "PNG")
 
 
+def save_dem_as_tif(dem, dem_filename):
+    """
+    Saves a DEM (2D float32 numpy array) as a GeoTIFF (.tif).
+    """
+    height, width = dem.shape
+    transform = from_origin(0, 0, 1, 1)  # dummy geotransform
+
+    with rasterio.open(
+        dem_filename, 'w',
+        driver='GTiff',
+        height=height,
+        width=width,
+        count=1,
+        dtype='float32',
+        crs='+proj=latlong',
+        transform=transform
+    ) as dst:
+        dst.write(dem.astype(np.float32), 1)
+
+
 def generate_terrain_blocks(generator_path,
                             num_terrains=1,
                             noise_dim=100,
@@ -251,9 +273,9 @@ def generate_terrain_blocks(generator_path,
             )
 
             rgb_filename = os.path.join(output_folder, f"terrain_{i:04d}_rgb.png")
-            dem_filename = os.path.join(output_folder, f"terrain_{i:04d}_height.png")
+            dem_filename = os.path.join(output_folder, f"terrain_{i:04d}_height.tif")
 
-            save_rgb_dem(rgb, dem, rgb_filename, dem_filename)
+            save_dem_as_tif(dem, dem_filename)
             print(f"Saved terrain {i+1}/{num_terrains}:")
             print(f"  RGB -> {rgb_filename}")
             print(f"  DEM -> {dem_filename}")
@@ -283,9 +305,10 @@ def generate_terrain_blocks(generator_path,
         )
 
         rgb_filename = os.path.join(output_folder, "large_terrain_rgb.png")
-        dem_filename = os.path.join(output_folder, "large_terrain_height.png")
+        dem_filename = os.path.join(output_folder, "large_terrain_height.tif"
+                                                   "")
 
-        save_rgb_dem(final_rgb, final_dem, rgb_filename, dem_filename)
+        save_dem_as_tif(final_dem, dem_filename)
 
         print("Saved single large terrain:")
         print(f"  RGB -> {rgb_filename}")
