@@ -43,6 +43,6 @@ def visualize_preprocessed_data(input_folder, output_path, grid_size=(4, 4)):
     print(f"Saved preprocessed data preview to {output_path}")
 
 if __name__ == "__main__":
-    input_folder = "/workspace/preprocessed_data"  # Path to preprocessed .npy files
-    output_path = "../preprocessed_data_preview.png"
+    input_folder = "/workspace/preprocessed_data_resized"  # Path to preprocessed .npy files
+    output_path = "/workspace/preprocessed_data_preview.png"
     visualize_preprocessed_data(input_folder, output_path, grid_size=(4, 4))
