@@ -8,14 +8,14 @@ real_folder = "./real_dems_for_compare" # or wherever your real DEMs are
 fake_folder = "./fake_dems_for_compare"
 num_samples = 10  # How many real/fake pairs to check
 
-# === HELPER FUNCTION ===
+# helper
 def load_dem(path):
     with rasterio.open(path) as src:
         dem = src.read(1)
         profile = src.profile
     return dem, profile
 
-# === COLLECT FILES ===
+# get files
 real_files = sorted([f for f in os.listdir(real_folder) if f.endswith(".tif")])
 fake_files = sorted([f for f in os.listdir(fake_folder) if f.endswith(".tif")])
 

@@ -4,13 +4,13 @@ import tensorflow as tf
 import rasterio
 from rasterio.transform import from_origin
 
-# === CONFIGURATION ===
+# Config
 generator_path = "../saved_models/generator_model.h5"
 output_folder = "fake_dems_for_compare"
 noise_dim = 100
 num_to_generate = 200
 image_size = (512, 512)
-batch_size = 32  # Adjust based on your VRAM
+batch_size = 32  # Adjust based on VRAM
 
 # Create output directory if it doesn't exist
 os.makedirs(output_folder, exist_ok=True)

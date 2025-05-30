@@ -17,7 +17,7 @@ output_plot_folder = "dem_evaluation_plots"
 
 os.makedirs(output_plot_folder, exist_ok=True)
 
-# === TERRAIN GEOMETRY FUNCTIONS ===
+# terrain geometry functions
 def compute_slope(dem):
     dx, dy = np.gradient(dem)
     return np.sqrt(dx**2 + dy**2)
@@ -35,12 +35,12 @@ def compute_roughness(dem):
             local_mean[i, j] = np.mean(local_window)
     return np.abs(dem - local_mean)
 
-# === LOAD DEM FROM TIF ===
+# load dem from tif
 def load_dem(path):
     with rasterio.open(path) as src:
         return src.read(1)
 
-# === MAIN EVALUATION ===
+# evaluation
 real_files = sorted([f for f in os.listdir(real_folder) if f.endswith(".tif")])[:num_samples]
 fake_files = sorted([f for f in os.listdir(fake_folder) if f.endswith(".tif")])[:num_samples]
 
@@ -78,13 +78,13 @@ for i in range(num_samples):
 
     print(f"[{i+1}/{num_samples}] {real_files[i]} vs {fake_files[i]} — SSIM(slope): {ssim_slope:.4f}, SSIM(curv): {ssim_curv:.4f}, MSE(rough): {mse_rough:.2f}")
 
-# === SAVE RESULTS ===
+# Save results
 df = pd.DataFrame(results)
 df.to_csv(output_csv, index=False)
 summary = df.describe()
 summary.to_csv(output_summary)
 
-# === PLOT HISTOGRAMS ===
+# Plot histograms
 plt.figure(figsize=(12, 4))
 
 plt.subplot(1, 3, 1)

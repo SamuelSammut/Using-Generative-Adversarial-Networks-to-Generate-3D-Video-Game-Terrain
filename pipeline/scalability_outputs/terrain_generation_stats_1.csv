@@ -1,0 +1,2 @@
+mode,resolution,overlap,time_secs,memory_before_mb,memory_after_mb,output_files
+big_grid,1024x1024,16,0.9481,1303.62,1569.57,large_terrain_rgb.png;large_terrain_height.png

@@ -1,0 +1,7 @@
+tensorflow==2.14.0
+numpy
+matplotlib
+rasterio
+scipy
+pillow
+psutil

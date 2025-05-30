@@ -3,8 +3,8 @@ import numpy as np
 import rasterio
 from rasterio.enums import Resampling
 
-# === CONFIGURATION ===
-input_folder = "./real_dems_for_compare"  # path to your real DEMs
+# config
+input_folder = "./real_dems_for_compare"  # path to real dems
 output_folder = "./real_dems_for_compare"
 target_range = (0, 1000)  # Match the fake DEM value range
 
@@ -19,7 +19,7 @@ def normalize_dem(dem, new_min=0, new_max=1000):
     scaled = norm * (new_max - new_min) + new_min
     return scaled.astype(np.float32)
 
-# === PROCESS FILES ===
+# process files
 input_files = sorted([f for f in os.listdir(input_folder) if f.endswith(".tif")])
 
 print(f"Found {len(input_files)} real DEMs to normalize...")

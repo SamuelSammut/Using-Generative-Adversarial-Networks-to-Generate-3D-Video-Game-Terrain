@@ -6,21 +6,6 @@ import matplotlib.pyplot as plt
 from tensorflow.keras import layers
 import tensorflow as tf
 
-tf.config.optimizer.set_jit(True)
-os.makedirs('../generated_images', exist_ok=True)
-
-filters = tf.constant([[0, 1, 0],
-                       [1, -4, 1],
-                       [0, 1, 0]], dtype=tf.float32)
-filters = tf.reshape(filters, [3, 3, 1, 1])
-
-
-lambda_sobel = 0.01  # just like lambda_curv before
-lambda_grad = 0.0
-lambda_curv = 0.0
-lambda_tv = 0.01
-lambda_elevation = 0.0
-
 
 def build_generator(noise_dim, output_shape=(256, 256, 4)):
     """
@@ -222,38 +207,38 @@ def train_step(rgb_dem_images, generator, discriminator, noise_dim):
         # Saves the return of the loss functions
         gen_loss = generator_loss(fake_output)
         # Custom loss components
-        real_dem = rgb_dem_images[:, :, :, 3:4]  # Extract real DEM channel
-        fake_dem = generated_images[:, :, :, 3:4]  # Extract fake DEM channel
+        # real_dem = rgb_dem_images[:, :, :, 3:4]  # Extract real DEM channel
+        # fake_dem = generated_images[:, :, :, 3:4]  # Extract fake DEM channel
 
         # Compute structure-aware losses separately
-        sobel = sobel_loss(real_dem, fake_dem)
-        grad = gradient_loss(real_dem, fake_dem)
+        # sobel = sobel_loss(real_dem, fake_dem)
+        # grad = gradient_loss(real_dem, fake_dem)
 
         # Log raw structure losses
-        tf.print("Sobel Loss:", sobel)
-        tf.print("Gradient Loss:", grad)
+        # tf.print("Sobel Loss:", sobel)
+        # tf.print("Gradient Loss:", grad)
 
         # Add structure-aware losses
-        gen_loss += lambda_grad * grad
-        gen_loss += lambda_sobel * sobel
-        gen_loss += lambda_tv * total_variation_loss(fake_dem)
+        # gen_loss += lambda_grad * grad
+        # gen_loss += lambda_sobel * sobel
+        # gen_loss += lambda_tv * total_variation_loss(fake_dem)
 
         # Elevation distribution penalty
-        target_elevation_mean = 0.5
-        mean_fake_elevation = tf.reduce_mean(fake_dem)
-        elevation_penalty = tf.abs(mean_fake_elevation - target_elevation_mean)
-        gen_loss += lambda_elevation * elevation_penalty
+        # target_elevation_mean = 0.5
+        # mean_fake_elevation = tf.reduce_mean(fake_dem)
+        # elevation_penalty = tf.abs(mean_fake_elevation - target_elevation_mean)
+        # gen_loss += lambda_elevation * elevation_penalty
 
         # Add structure-aware losses
-        gen_loss += lambda_grad * gradient_loss(real_dem, fake_dem)
-        gen_loss += lambda_curv * sobel_loss(real_dem, fake_dem)
-        gen_loss += lambda_tv * total_variation_loss(fake_dem)
+        # gen_loss += lambda_grad * gradient_loss(real_dem, fake_dem)
+        # gen_loss += lambda_curv * sobel_loss(real_dem, fake_dem)
+        # gen_loss += lambda_tv * total_variation_loss(fake_dem)
 
         # Elevation distribution penalty
-        target_elevation_mean = 0.5
-        mean_fake_elevation = tf.reduce_mean(fake_dem)
-        elevation_penalty = tf.abs(mean_fake_elevation - target_elevation_mean)
-        gen_loss += lambda_elevation * elevation_penalty
+        # target_elevation_mean = 0.5
+        # mean_fake_elevation = tf.reduce_mean(fake_dem)
+        # elevation_penalty = tf.abs(mean_fake_elevation - target_elevation_mean)
+        # gen_loss += lambda_elevation * elevation_penalty
 
         disc_loss = discriminator_loss(real_output, fake_output)
 
@@ -280,7 +265,7 @@ def train_step(rgb_dem_images, generator, discriminator, noise_dim):
     disc_grad_norm = tf.linalg.global_norm(gradients_of_discriminator)
     print(f"Generator gradient norm: {gen_grad_norm}")
     print(f"Discriminator gradient norm: {disc_grad_norm}")
-    print(f"Mean fake DEM elevation: {mean_fake_elevation:.4f}")
+    # print(f"Mean fake DEM elevation: {mean_fake_elevation:.4f}")
 
     return gen_loss, disc_loss, gen_grad_norm.numpy(), disc_grad_norm.numpy()
 
@@ -289,9 +274,9 @@ def train(dataset, epochs, generator, discriminator, noise_dim):
     print("Started training")
     saved_models_folder = "saved_models"
     os.makedirs(saved_models_folder, exist_ok=True)
-    best_loss = float('inf')
-    patience = 20  # epochs to wait before stopping
-    wait = 0
+    # best_loss = float('inf')
+    # patience = 20  # epochs to wait before stopping
+    # wait = 0
 
     gen_grad_norms = []
     disc_grad_norms = []
@@ -438,11 +423,7 @@ def load_dataset(output_folder_path, batch_size):
     for f in files:
         arr = np.load(f).astype(np.float32)
 
-        # Normalize RGB from [0, 255] to [-1, 1]
-        arr[:, :, :3] = (arr[:, :, :3] / 127.5) - 1.0
-
-        # Normalize DEM from [0, 1000] to [-1, 1]
-        arr[:, :, 3] = (arr[:, :, 3] / 500.0) - 1.0
+        arr = (arr * 2.0) - 1.0
 
         data.append(arr)
 
@@ -477,18 +458,18 @@ def get_unique_filename(base_path, base_name, epoch=None):
         return file_path
 
 
-def gradient_loss(real, fake):
-    real_dx, real_dy = tf.image.image_gradients(real)
-    fake_dx, fake_dy = tf.image.image_gradients(fake)
-    return tf.reduce_mean(tf.abs(real_dx - fake_dx)) + tf.reduce_mean(tf.abs(real_dy - fake_dy))
+# def gradient_loss(real, fake):
+#     real_dx, real_dy = tf.image.image_gradients(real)
+#     fake_dx, fake_dy = tf.image.image_gradients(fake)
+#     return tf.reduce_mean(tf.abs(real_dx - fake_dx)) + tf.reduce_mean(tf.abs(real_dy - fake_dy))
 
-def sobel_loss(real, fake):
-    real_edges = tf.image.sobel_edges(real)
-    fake_edges = tf.image.sobel_edges(fake)
-    return tf.reduce_mean(tf.abs(real_edges - fake_edges))
-
-def total_variation_loss(img):
-    return tf.reduce_mean(tf.image.total_variation(img))
+# def sobel_loss(real, fake):
+#     real_edges = tf.image.sobel_edges(real)
+#     fake_edges = tf.image.sobel_edges(fake)
+#     return tf.reduce_mean(tf.abs(real_edges - fake_edges))
+#
+# def total_variation_loss(img):
+#     return tf.reduce_mean(tf.image.total_variation(img))
 
 if __name__ == "__main__":
     # Dimension of the noise vector
@@ -521,6 +502,6 @@ if __name__ == "__main__":
 
     # Save generator model in a unique filename under 'saved_models' folder
     saved_models_folder = "saved_models"
-    generator_model_path = get_unique_filename(saved_models_folder, "generator_model")
+    generator_model_path = get_unique_filename(saved_models_folder, "generator_model2")
     generator.save(generator_model_path)
     print(f"Generator model saved to: {generator_model_path}")

@@ -1,10 +1,36 @@
 import os
 import argparse
+import time  # <-- ADDED to measure generation time
+import psutil  # <-- ADDED to measure memory usage
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from PIL import Image
 import re
+
+def get_memory_usage_mb():
+    """
+    Returns the Resident Set Size (RSS) memory usage
+    of the current Python process in MB.
+    """
+    process = psutil.Process(os.getpid())
+    mem_info = process.memory_info()
+    return mem_info.rss / (1024 * 1024)
+
+def record_stats(csv_path, mode, resolution, overlap, elapsed_time, mem_before, mem_after, output_files):
+    """
+    Appends a line of stats to `csv_path`, creating the file if needed.
+    Columns:
+      mode,resolution,overlap,time_secs,memory_before_mb,memory_after_mb,output_files
+    """
+    header = "mode,resolution,overlap,time_secs,memory_before_mb,memory_after_mb,output_files\n"
+    line = f"{mode},{resolution},{overlap},{elapsed_time:.4f},{mem_before:.2f},{mem_after:.2f},{output_files}\n"
+
+    file_exists = os.path.exists(csv_path)
+    with open(csv_path, "a") as f:
+        if not file_exists:
+            f.write(header)
+        f.write(line)
 
 def blend_block_into(big_rgb, big_dem, block_rgb, block_dem, top_left, overlap):
     """
@@ -143,7 +169,7 @@ def generate_big_terrain(generator,
     """
 
     # Calculate how big each tile should be in height & width
-    # so that the final dimension ~ target_final_size x target_final_size.
+    # so that the final image is ~ target_final_size x target_final_size.
     # final_height = H_block + (grid_rows-1)*(H_block-overlap)
     # => H_block ~ (target_final_size + (grid_rows-1)*overlap) / grid_rows
     H_block = (target_final_size + (grid_rows - 1) * overlap) // grid_rows
@@ -239,16 +265,27 @@ def generate_terrain_blocks(generator_path,
     generator = load_model(generator_path, compile=False)
     print("Generator loaded successfully.")
 
+    stats_csv = os.path.join(output_folder, "terrain_generation_stats.csv")
+
     if big_grid is None:
         # Mode 1: Generate individual blocks
         for i in range(num_terrains):
-            # Generate a single block at target_final_size x target_final_size
+            # Measure memory before + time
+            mem_before = get_memory_usage_mb()
+            t0 = time.perf_counter()
+
+            # Generate a single block
             rgb, dem = generate_single_block(
                 generator,
                 noise_dim=noise_dim,
                 out_height=target_final_size,
                 out_width=target_final_size
             )
+
+            # End time + memory
+            t1 = time.perf_counter()
+            mem_after = get_memory_usage_mb()
+            elapsed = t1 - t0
 
             rgb_filename = os.path.join(output_folder, f"terrain_{i:04d}_rgb.png")
             dem_filename = os.path.join(output_folder, f"terrain_{i:04d}_height.png")
@@ -257,6 +294,20 @@ def generate_terrain_blocks(generator_path,
             print(f"Saved terrain {i+1}/{num_terrains}:")
             print(f"  RGB -> {rgb_filename}")
             print(f"  DEM -> {dem_filename}")
+
+            # Record stats
+            out_files = f"{os.path.basename(rgb_filename)};{os.path.basename(dem_filename)}"
+            resolution = f"{target_final_size}x{target_final_size}"
+            record_stats(
+                csv_path=stats_csv,
+                mode="single",
+                resolution=resolution,
+                overlap=0,  # no overlap used for single-block
+                elapsed_time=elapsed,
+                mem_before=mem_before,
+                mem_after=mem_after,
+                output_files=out_files
+            )
 
         print("Generation complete (individual blocks).")
 
@@ -272,6 +323,10 @@ def generate_terrain_blocks(generator_path,
         print(f"Generating one large terrain of size {grid_rows} x {grid_cols} blocks...")
         print(f"Target final size ~ {target_final_size} x {target_final_size}")
 
+        # Measure memory + time
+        mem_before = get_memory_usage_mb()
+        t0 = time.perf_counter()
+
         final_rgb, final_dem = generate_big_terrain(
             generator,
             grid_rows=grid_rows,
@@ -282,6 +337,10 @@ def generate_terrain_blocks(generator_path,
             target_final_size=target_final_size
         )
 
+        t1 = time.perf_counter()
+        mem_after = get_memory_usage_mb()
+        elapsed = t1 - t0
+
         rgb_filename = os.path.join(output_folder, "large_terrain_rgb.png")
         dem_filename = os.path.join(output_folder, "large_terrain_height.png")
 
@@ -291,6 +350,21 @@ def generate_terrain_blocks(generator_path,
         print(f"  RGB -> {rgb_filename}")
         print(f"  DEM -> {dem_filename}")
         print("Generation complete (large seamless terrain).")
+
+        # Record stats
+        out_files = f"{os.path.basename(rgb_filename)};{os.path.basename(dem_filename)}"
+        # approximate final dimension
+        resolution = f"{final_rgb.shape[1]}x{final_rgb.shape[0]}"  # (width x height)
+        record_stats(
+            csv_path=stats_csv,
+            mode="big_grid",
+            resolution=resolution,
+            overlap=overlap,
+            elapsed_time=elapsed,
+            mem_before=mem_before,
+            mem_after=mem_after,
+            output_files=out_files
+        )
 
 
 if __name__ == "__main__":
