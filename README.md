@@ -21,9 +21,9 @@ This repository contains the full pipeline developed for my final‑year project
 | **Pre‑process** | `pre‑process.py`                      | Normalise, resize→256², augment         |
 | **Train GAN**   | `gan.py`                              | Learn joint RGB+DEM distribution        |
 | **Generate**    | `create_terrain.py`                   | Create single blocks *or* stitched maps |
-| **Visualise**   | `visualise_raw.py`, `visualise_3d.py` | Quick 2‑D / 3‑D previews                |
 
-*All intermediate artefacts live under `output_tiles/` and `preprocessed_data/` by default.*
+
+*All intermediate artefacts live under `output_tiles/` and `preprocessed_data/` , however did not fit for submission.*
 
 ---
 
@@ -93,7 +93,7 @@ $ python gan.py                      # trains & writes models to saved_models/
 
 ---
 
-## 6.Generating New Terrain
+## 6.Generating New Terrain (Can be run without importing anything, as trained model is included)
 
 ### 6.1 Single 256² Blocks
 
@@ -116,18 +116,9 @@ Outputs are 8‑bit RGB (`*_rgb.png`) and 16‑bit heightmaps (`*_height.png`). 
 
 ---
 
-## 7. Visualisation Helpers
-
-```bash
-$ python visualise_raw.py  terrain_outputs/terrain_0000_rgb.png
-$ python visualise_3d.py   terrain_outputs/terrain_0000_height.png
-```
-
----
 
 
-
-## 8. Troubleshooting
+## 7. Troubleshooting
 
 | Symptom                          | Hint                                                                            |
 | -------------------------------- | ------------------------------------------------------------------------------- |
